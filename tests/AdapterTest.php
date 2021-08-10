@@ -24,7 +24,7 @@ class AdapterTest extends TestCase
     {
         $this->config = [
             'driver' => 'Pdo_Mysql', // Mysqli, Sqlsrv, Pdo_Sqlite, Pdo_Mysql, Pdo(= Other PDO Driver)
-            'hostname' => $this->env('DB_PORT', '127.0.0.1'),
+            'hostname' => $this->env('DB_HOST', '127.0.0.1'),
             'database' => $this->env('DB_DATABASE', 'casbin'),
             'username' => $this->env('DB_USERNAME', 'root'),
             'password' => $this->env('DB_PASSWORD', ''),
@@ -49,7 +49,7 @@ class AdapterTest extends TestCase
 
         try {
             $laminasDbAdapter->query(
-                $sql->getSqlStringForSqlObject($ddl),
+                $sql->buildSqlString($ddl),
                 $laminasDbAdapter::QUERY_MODE_EXECUTE
             );
         } catch (\Exception $e) {
@@ -65,7 +65,7 @@ class AdapterTest extends TestCase
         $table->addColumn(new Varchar('v5', 255, true));
 
         $laminasDbAdapter->query(
-            $sql->getSqlStringForSqlObject($table),
+            $sql->buildSqlString($table),
             $laminasDbAdapter::QUERY_MODE_EXECUTE
         );
         $tableGateway->delete('1 = 1');
