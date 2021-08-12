@@ -21,7 +21,7 @@
         "test": "vendor/bin/phpunit"
     },
     "require": {
-        "casbin/casbin": "~1.0",
+        "casbin/casbin": "~3.1",
         "laminas/laminas-db": "^2.11"
     },
     "require-dev": {
