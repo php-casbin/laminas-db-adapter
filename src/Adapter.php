@@ -9,6 +9,7 @@ use Laminas\Db\Adapter\Adapter as LaminasDbAdapter;
 use Laminas\Db\TableGateway\TableGateway;
 use Laminas\Db\TableGateway\TableGatewayInterface;
 use Laminas\Db\Sql\Select;
+use Casbin\Model\Model;
 
 /**
  * Laminas DB Adapter for Casbin.
@@ -92,7 +93,7 @@ class Adapter implements AdapterContract
      *
      * @param Model $model
      */
-    public function loadPolicy($model)
+    public function loadPolicy($model): void
     {
         $rows = $this->tableGateway->select(function (Select $select) {
             $select->columns(['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5']);
@@ -113,21 +114,19 @@ class Adapter implements AdapterContract
      *
      * @return bool
      */
-    public function savePolicy($model)
+    public function savePolicy($model): void
     {
-        foreach ($model->model['p'] as $ptype => $ast) {
+        foreach ($model['p'] as $ptype => $ast) {
             foreach ($ast->policy as $rule) {
                 $this->savePolicyLine($ptype, $rule);
             }
         }
 
-        foreach ($model->model['g'] as $ptype => $ast) {
+        foreach ($model['g'] as $ptype => $ast) {
             foreach ($ast->policy as $rule) {
                 $this->savePolicyLine($ptype, $rule);
             }
         }
-
-        return true;
     }
 
     /**
@@ -140,9 +139,9 @@ class Adapter implements AdapterContract
      *
      * @return mixed
      */
-    public function addPolicy($sec, $ptype, $rule)
+    public function addPolicy($sec, $ptype, $rule): void
     {
-        return $this->savePolicyLine($ptype, $rule);
+        $this->savePolicyLine($ptype, $rule);
     }
 
     /**
@@ -152,7 +151,7 @@ class Adapter implements AdapterContract
      * @param string $ptype
      * @param array  $rule
      */
-    public function removePolicy($sec, $ptype, $rule)
+    public function removePolicy($sec, $ptype, $rule): void
     {
         $where['ptype'] = $ptype;
         foreach ($rule as $key => $value) {
@@ -171,7 +170,7 @@ class Adapter implements AdapterContract
      * @param int    $fieldIndex
      * @param mixed  ...$fieldValues
      */
-    public function removeFilteredPolicy($sec, $ptype, $fieldIndex, ...$fieldValues)
+    public function removeFilteredPolicy($sec, $ptype, $fieldIndex, ...$fieldValues): void
     {
         $where['ptype'] = $ptype;
         foreach (range(0, 5) as $value) {
