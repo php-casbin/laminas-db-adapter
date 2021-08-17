@@ -3,6 +3,7 @@
 namespace CasbinAdapter\LaminasDb;
 
 use Casbin\Persist\Adapter as AdapterContract;
+use Casbin\Persist\BatchAdapter as BatchAdapterContract;
 use Casbin\Persist\AdapterHelper;
 use Laminas\Db\Adapter\AdapterInterface as LaminasDbAdapterInterface;
 use Laminas\Db\Adapter\Adapter as LaminasDbAdapter;
@@ -16,7 +17,7 @@ use Casbin\Model\Model;
  *
  * @author techlee@qq.com
  */
-class Adapter implements AdapterContract
+class Adapter implements AdapterContract, BatchAdapterContract
 {
     use AdapterHelper;
 
@@ -24,6 +25,11 @@ class Adapter implements AdapterContract
      * @var TableGatewayInterface
      */
     protected $tableGateway;
+
+    /**
+     * @var LaminasDbAdapterInterface
+     */
+    protected $dbAdapter;
 
     /**
      * default table name.
@@ -145,6 +151,35 @@ class Adapter implements AdapterContract
     }
 
     /**
+     * Adds a policy rules to the storage.
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param string[][] $rules
+     */
+    public function addPolicies(string $sec, string $ptype, array $rules): void
+    {
+        $columns = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
+        $values = [];
+        $sets = [];
+        $columnsCount = count($columns);
+        foreach ($rules as $rule) {
+            array_unshift($rule, $ptype);
+            $values = array_merge($values, array_pad($rule, $columnsCount, null));
+            $sets[] = array_pad([], $columnsCount, '?');
+        }
+        $valuesStr = implode(', ', array_map(function ($set) {
+            return '(' . implode(', ', $set) . ')';
+        }, $sets));
+        $sql = 'INSERT INTO ' . $this->casbinRuleTableName . ' (' . implode(', ', $columns) . ')' . ' VALUES' . $valuesStr;
+        
+        $driver = $this->tableGateway->adapter->getDriver();
+        $statement = $driver->createStatement($sql);
+        $result = $statement->execute($values);
+    }
+
+    /**
      * This is part of the Auto-Save feature.
      *
      * @param string $sec
@@ -159,6 +194,23 @@ class Adapter implements AdapterContract
         }
 
         $this->tableGateway->delete($where);
+    }
+
+    /**
+     * Removes policy rules from the storage.
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param string[][] $rules
+     */
+    public function removePolicies(string $sec, string $ptype, array $rules): void
+    {
+        $this->tableGateway->adapter->getDriver()->getConnection()->beginTransaction(function () use ($sec, $ptype, $rules) {
+            foreach ($rules as $rule) {
+                $this->removePolicy($sec, $ptype, $rule);
+            }
+        });
     }
 
     /**
