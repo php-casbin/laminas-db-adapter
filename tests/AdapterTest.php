@@ -11,6 +11,9 @@ use Laminas\Db\Sql\Ddl\DropTable;
 use Laminas\Db\Sql\Ddl\CreateTable;
 use Laminas\Db\Sql\Ddl\Column\Varchar;
 use Laminas\Db\Sql\Sql;
+use Casbin\Persist\Adapters\Filter;
+use Casbin\Exceptions\InvalidFilterTypeException;
+use Laminas\Db\Sql\Select;
 
 class AdapterTest extends TestCase
 {
@@ -215,6 +218,49 @@ class AdapterTest extends TestCase
         $e->removeFilteredPolicy(2, 'write');
         $this->assertFalse($e->enforce('bob', 'data2', 'write'));
         $this->assertFalse($e->enforce('alice', 'data2', 'write'));
+    }
+
+    public function testLoadFilteredPolicy()
+    {
+        $e = $this->getEnforcer();
+        $e->clearPolicy();
+        $adapter = $e->getAdapter();
+        $adapter->setFiltered(true);
+        $this->assertEquals([], $e->getPolicy());
+        
+        // invalid filter type
+        try {
+            $filter = ['alice', 'data1', 'read'];
+            $e->loadFilteredPolicy($filter);
+            $exception = InvalidFilterTypeException::class;
+            $this->fail("Expected exception $exception not thrown");
+        } catch (InvalidFilterTypeException $exception) {
+            $this->assertEquals("invalid filter type", $exception->getMessage());
+        }
+
+        // string
+        $filter = "v0 = 'bob'";
+        $e->loadFilteredPolicy($filter);
+        $this->assertEquals([
+            ['bob', 'data2', 'write']
+        ], $e->getPolicy());
+        
+        // Filter
+        $filter = new Filter(['v2'], ['read']);
+        $e->loadFilteredPolicy($filter);
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+            ['data2_admin', 'data2', 'read'],
+        ], $e->getPolicy());
+
+        // Closure
+        $e->loadFilteredPolicy(function (Select $select) {
+            return $select->where(['v1' => 'data1']);
+        });
+
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+        ], $e->getPolicy());
     }
 
     protected function env($key, $default = null)

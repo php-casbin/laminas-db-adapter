@@ -4,6 +4,7 @@ namespace CasbinAdapter\LaminasDb;
 
 use Casbin\Persist\Adapter as AdapterContract;
 use Casbin\Persist\BatchAdapter as BatchAdapterContract;
+use Casbin\Persist\FilteredAdapter as FilteredAdapterContract;
 use Casbin\Persist\AdapterHelper;
 use Laminas\Db\Adapter\AdapterInterface as LaminasDbAdapterInterface;
 use Laminas\Db\Adapter\Adapter as LaminasDbAdapter;
@@ -11,15 +12,22 @@ use Laminas\Db\TableGateway\TableGateway;
 use Laminas\Db\TableGateway\TableGatewayInterface;
 use Laminas\Db\Sql\Select;
 use Casbin\Model\Model;
+use Casbin\Persist\Adapters\Filter;
+use Casbin\Exceptions\InvalidFilterTypeException;
 
 /**
  * Laminas DB Adapter for Casbin.
  *
  * @author techlee@qq.com
  */
-class Adapter implements AdapterContract, BatchAdapterContract
+class Adapter implements AdapterContract, BatchAdapterContract, FilteredAdapterContract
 {
     use AdapterHelper;
+
+    /**
+     * @var bool
+     */
+    private $filtered = false;
 
     /**
      * @var TableGatewayInterface
@@ -234,5 +242,58 @@ class Adapter implements AdapterContract, BatchAdapterContract
         }
 
         $this->tableGateway->delete($where);
+    }
+
+    /**
+     * Loads only policy rules that match the filter.
+     *
+     * @param Model $model
+     * @param mixed $filter
+     */
+    public function loadFilteredPolicy(Model $model, $filter): void
+    {
+        if (is_string($filter)) {
+            $where = $filter;
+        } elseif ($filter instanceof Filter) {
+            foreach ($filter->p as $k => $v) {
+                $where[$v] = $filter->g[$k];
+            }
+        } elseif ($filter instanceof \Closure) {
+            $where = $filter;
+        } else {
+            throw new InvalidFilterTypeException('invalid filter type');
+        }
+        $rows = $this->tableGateway->select($where)->toArray();
+
+        foreach ($rows as $row) {
+            $row = array_filter($row, function ($value) {
+                return !is_null($value) && $value !== '';
+            });
+            $line = implode(', ', array_filter($row, function ($val) {
+                return '' != $val && !is_null($val);
+            }));
+            $this->loadPolicyLine(trim($line), $model);
+        }
+        $this->setFiltered(true);
+    }
+
+    /**
+     * Returns true if the loaded policy has been filtered.
+     *
+     * @return bool
+     */
+    public function isFiltered(): bool
+    {
+        return $this->filtered;
+    }
+
+    /**
+     * Sets filtered parameter.
+     *
+     * @param bool $filtered
+     */
+    public function setFiltered(bool $filtered): void
+    {
+        $this->filtered = $filtered;
     }
 }
