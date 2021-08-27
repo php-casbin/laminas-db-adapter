@@ -5,6 +5,7 @@ namespace CasbinAdapter\LaminasDb;
 use Casbin\Persist\Adapter as AdapterContract;
 use Casbin\Persist\BatchAdapter as BatchAdapterContract;
 use Casbin\Persist\FilteredAdapter as FilteredAdapterContract;
+use Casbin\Persist\UpdatableAdapter as UpdatableAdapterContract;
 use Casbin\Persist\AdapterHelper;
 use Laminas\Db\Adapter\AdapterInterface as LaminasDbAdapterInterface;
 use Laminas\Db\Adapter\Adapter as LaminasDbAdapter;
@@ -20,7 +21,7 @@ use Casbin\Exceptions\InvalidFilterTypeException;
  *
  * @author techlee@qq.com
  */
-class Adapter implements AdapterContract, BatchAdapterContract, FilteredAdapterContract
+class Adapter implements AdapterContract, BatchAdapterContract, FilteredAdapterContract, UpdatableAdapterContract
 {
     use AdapterHelper;
 
@@ -214,11 +215,16 @@ class Adapter implements AdapterContract, BatchAdapterContract, FilteredAdapterC
      */
     public function removePolicies(string $sec, string $ptype, array $rules): void
     {
-        $this->tableGateway->adapter->getDriver()->getConnection()->beginTransaction(function () use ($sec, $ptype, $rules) {
+        try {
+            $connection = $this->tableGateway->adapter->getDriver()->getConnection();
+            $connection->beginTransaction();
             foreach ($rules as $rule) {
                 $this->removePolicy($sec, $ptype, $rule);
             }
-        });
+            $connection->commit();
+        } catch (\Exception $e) {
+            $connection->rollback();
+        }
     }
 
     /**
@@ -295,5 +301,51 @@ class Adapter implements AdapterContract, BatchAdapterContract, FilteredAdapterC
     public function setFiltered(bool $filtered): void
     {
         $this->filtered = $filtered;
+    }
+
+    /**
+     * Updates a policy rule from storage.
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param string[] $oldRule
+     * @param string[] $newPolicy
+     */
+    public function updatePolicy(string $sec, string $ptype, array $oldRule, array $newPolicy): void
+    {
+        $where['ptype'] = $ptype;
+        foreach ($oldRule as $k => $v) {
+            $where['v' . $k] = $v;
+        }
+
+        $data = [];
+        foreach ($newPolicy as $k => $v) {
+            $data['v' . $k] = $v;
+        }
+        $this->tableGateway->update($data, $where);
+    }
+
+    /**
+     * UpdatePolicies updates some policy rules to storage, like db, redis.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param string[][] $oldRules
+     * @param string[][] $newRules
+     * @return void
+     */
+    public function updatePolicies(string $sec, string $ptype, array $oldRules, array $newRules): void
+    {
+        try {
+            $connection = $this->tableGateway->adapter->getDriver()->getConnection();
+            $connection->beginTransaction();
+            foreach ($oldRules as $i => $oldRule) {
+                $this->updatePolicy($sec, $ptype, $oldRule, $newRules[$i]);
+            }
+            $connection->commit();
+        } catch (\Exception $e) {
+            $connection->rollback();
+        }
     }
 }
