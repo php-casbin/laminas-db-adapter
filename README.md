@@ -1,6 +1,6 @@
 # Laminas-db Adapter for PHP-Casbin
 
-[![Build Status](https://travis-ci.org/php-casbin/laminas-db-adapter.svg?branch=master)](https://travis-ci.org/php-casbin/laminas-db-adapter)
+[![PHPUnit](https://github.com/php-casbin/laminas-db-adapter/actions/workflows/phpunit.yml/badge.svg)](https://github.com/php-casbin/laminas-db-adapter/actions/workflows/phpunit.yml)
 [![Coverage Status](https://coveralls.io/repos/github/php-casbin/laminas-db-adapter/badge.svg)](https://coveralls.io/github/php-casbin/laminas-db-adapter)
 [![Latest Stable Version](https://poser.pugx.org/casbin/laminas-db-adapter/v/stable)](https://packagist.org/packages/casbin/laminas-db-adapter)
 [![Total Downloads](https://poser.pugx.org/casbin/laminas-db-adapter/downloads)](https://packagist.org/packages/casbin/laminas-db-adapter)
